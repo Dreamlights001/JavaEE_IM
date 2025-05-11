@@ -30,7 +30,7 @@
 
 1. 克隆仓库（或下载源代码）
    ```bash
-   git clone https://github.com/yourusername/smart-manufacturing.git
+   git clone https://https://github.com/Dreamlights001/JavaEE_IM.git
    cd smart-manufacturing
    ```
 
