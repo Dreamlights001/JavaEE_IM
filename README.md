@@ -31,7 +31,7 @@
 1. 克隆仓库（或下载源代码）
    ```bash
    git clone https://https://github.com/Dreamlights001/JavaEE_IM.git
-   cd smart-manufacturing
+   cd JavaEE_IM
    ```
 
 2. 构建项目
