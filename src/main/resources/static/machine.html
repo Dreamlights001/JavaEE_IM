@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能制造系统 - 机器详情</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <!-- 导航 -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="#">智能制造系统</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="dashboard.html">仪表盘</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="report.html">报表</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <span class="navbar-text me-3" id="user-info">欢迎, 用户</span>
+                    <a href="/api/logout" class="btn btn-outline-light btn-sm">退出</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <div class="container mt-4">
+        <div class="row mb-3">
+            <div class="col">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="dashboard.html">仪表盘</a></li>
+                        <li class="breadcrumb-item active" aria-current="page" id="machine-name">机器详情</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
+
+        <!-- 机器标题 -->
+        <div class="row mb-4" id="machine-header">
+            <div class="col-md-8">
+                <h2 id="machine-title">机器详情</h2>
+                <p class="text-muted" id="machine-type">加载中...</p>
+            </div>
+            <div class="col-md-4 text-end">
+                <h4 id="machine-status" class="status-running">
+                    <i class="bi bi-check-circle-fill"></i> 运行中
+                </h4>
+            </div>
+        </div>
+
+        <!-- 传感器数据 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h4>当前传感器数据</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6 text-center mb-4">
+                                <i class="bi bi-thermometer-half machine-icon text-danger"></i>
+                                <h5>温度</h5>
+                                <p class="sensor-value" id="current-temperature">--</p>
+                            </div>
+                            <div class="col-6 text-center mb-4">
+                                <i class="bi bi-activity machine-icon text-primary"></i>
+                                <h5>振动</h5>
+                                <p class="sensor-value" id="current-vibration">--</p>
+                            </div>
+                        </div>
+                        <div class="alert alert-info" id="last-updated">
+                            最后更新: --
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h4>预测</h4>
+                    </div>
+                    <div class="card-body">
+                        <div id="machine-predictions">
+                            <p class="text-center">没有可用的预测</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 图表 -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h4>温度历史</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="temperature-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h4>振动历史</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="vibration-chart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 页脚 -->
+    <footer class="footer bg-light mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col text-center">
+                    <p>智能制造系统 &copy; 2023</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 脚本 -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        $(document).ready(function() {
+            // 从URL获取机器ID
+            const urlParams = new URLSearchParams(window.location.search);
+            const machineId = urlParams.get('id');
+            
+            if (!machineId) {
+                window.location.href = 'dashboard.html';
+                return;
+            }
+            
+            // 温度图表
+            const temperatureCtx = document.getElementById('temperature-chart').getContext('2d');
+            const temperatureChart = new Chart(temperatureCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '温度 (°C)',
+                        data: [],
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: '温度 (°C)'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 振动图表
+            const vibrationCtx = document.getElementById('vibration-chart').getContext('2d');
+            const vibrationChart = new Chart(vibrationCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '振动',
+                        data: [],
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: '振动'
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: '时间'
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // 加载机器数据
+            function loadMachineData() {
+                $.ajax({
+                    url: `/api/machines/${machineId}`,
+                    type: 'GET',
+                    success: function(machine) {
+                        updateMachineDetails(machine);
+                    },
+                    error: function(xhr) {
+                        if (xhr.status === 401 || xhr.status === 403) {
+                            window.location.href = '/login.html';
+                        } else if (xhr.status === 404) {
+                            alert('未找到机器');
+                            window.location.href = 'dashboard.html';
+                        }
+                    }
+                });
+                
+                // 加载传感器数据
+                $.ajax({
+                    url: `/api/machines/${machineId}/sensorData`,
+                    type: 'GET',
+                    success: function(sensorData) {
+                        updateSensorData(sensorData);
+                        updateCharts(sensorData);
+                    }
+                });
+                
+                // 加载预测
+                $.ajax({
+                    url: `/api/machines/${machineId}/predictions`,
+                    type: 'GET',
+                    success: function(predictions) {
+                        updatePredictions(predictions);
+                    }
+                });
+            }
+            
+            function updateMachineDetails(machine) {
+                $('#machine-name').text(machine.name);
+                $('#machine-title').text(machine.name);
+                $('#machine-type').text(machine.type);
+                
+                // 使用适当的样式更新状态
+                let statusClass = '';
+                let statusIcon = '';
+                let statusText = '';
+                
+                switch(machine.status) {
+                    case 'RUNNING':
+                        statusClass = 'status-running';
+                        statusIcon = 'bi-check-circle-fill';
+                        statusText = '运行中';
+                        break;
+                    case 'WARNING':
+                        statusClass = 'status-warning';
+                        statusIcon = 'bi-exclamation-triangle-fill';
+                        statusText = '警告';
+                        break;
+                    case 'UNSTABLE':
+                        statusClass = 'status-unstable';
+                        statusIcon = 'bi-exclamation-circle-fill';
+                        statusText = '不稳定';
+                        break;
+                    default:
+                        statusClass = 'status-error';
+                        statusIcon = 'bi-x-circle-fill';
+                        statusText = '错误';
+                }
+                
+                $('#machine-status').attr('class', statusClass)
+                    .html(`<i class="bi ${statusIcon}"></i> ${statusText}`);
+            }
+            
+            function updateSensorData(sensorData) {
+                if (sensorData.length === 0) {
+                    return;
+                }
+                
+                // 获取最新的传感器数据
+                const latestData = sensorData[0];
+                
+                $('#current-temperature').text(`${latestData.temperature.toFixed(1)} °C`);
+                $('#current-vibration').text(latestData.vibration.toFixed(2));
+                
+                const lastUpdated = new Date(latestData.timestamp);
+                $('#last-updated').text(`最后更新: ${lastUpdated.toLocaleString()}`);
+            }
+            
+            function updateCharts(sensorData) {
+                if (sensorData.length === 0) {
+                    return;
+                }
+                
+                // 反转数据以显示时间顺序
+                const chronologicalData = [...sensorData].reverse();
+                
+                // 准备图表数据
+                const labels = chronologicalData.map(data => {
+                    const date = new Date(data.timestamp);
+                    return date.toLocaleTimeString();
+                });
+                
+                const temperatures = chronologicalData.map(data => data.temperature);
+                const vibrations = chronologicalData.map(data => data.vibration);
+                
+                // Update temperature chart
+                temperatureChart.data.labels = labels;
+                temperatureChart.data.datasets[0].data = temperatures;
+                temperatureChart.update();
+                
+                // Update vibration chart
+                vibrationChart.data.labels = labels;
+                vibrationChart.data.datasets[0].data = vibrations;
+                vibrationChart.update();
+            }
+            
+            function updatePredictions(predictions) {
+                const predictionsContainer = $('#machine-predictions');
+                predictionsContainer.empty();
+                
+                if (predictions.length === 0) {
+                    predictionsContainer.html('<p class="text-center">No predictions available</p>');
+                    return;
+                }
+                
+                predictions.forEach(function(prediction) {
+                    const predictionTime = new Date(prediction.predictedFailureTime);
+                    const formattedTime = predictionTime.toLocaleString();
+                    const confidencePercent = Math.round(prediction.confidence * 100);
+                    
+                    const predictionItem = `
+                        <div class="prediction-alert mb-3 p-3 bg-light">
+                            <div class="d-flex justify-content-between">
+                                <h5>Failure Prediction</h5>
+                                <span class="badge bg-danger">Confidence: ${confidencePercent}%</span>
+                            </div>
+                            <p class="mb-1">Predicted Time: ${formattedTime}</p>
+                        </div>
+                    `;
+                    
+                    predictionsContainer.append(predictionItem);
+                });
+            }
+            
+            // Initial load
+            loadMachineData();
+            
+            // Refresh data every 5 seconds
+            setInterval(loadMachineData, 5000);
+        });
+    </script>
+</body>
+</html> 
